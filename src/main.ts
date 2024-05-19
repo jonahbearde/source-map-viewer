@@ -1,8 +1,6 @@
 import * as THREE from "three"
-import { OrbitControls } from "three/examples/jsm/Addons.js"
-import GUI from "lil-gui"
-import { MinMaxGUIHelper } from "./helper"
-import vertices from "./json/vertices.json"
+import { FlyControls } from "three/examples/jsm/Addons.js"
+import triangles from "./json/triangles.json"
 
 function main() {
   const renderer = new THREE.WebGLRenderer({ antialias: true })
@@ -13,33 +11,19 @@ function main() {
   const fov = 75
   const aspect = window.innerWidth / window.innerHeight // the canvas default
   const near = 0.1
-  const far = 2000
+  const far = 5000
   const camera = new THREE.PerspectiveCamera(fov, aspect, near, far)
-  camera.position.z = 500
-  camera.position.x = 500
-  camera.position.y = 500
+  camera.position.z = 1000
+  camera.position.x = 0
+  camera.position.y = -1000
 
-  camera.lookAt(0, 0, 0)
+  camera.lookAt(0, 0, 300)
 
-  function updateCamera() {
-    camera.updateProjectionMatrix()
-  }
+  const controls = new FlyControls(camera, renderer.domElement)
 
-  const gui = new GUI()
-  gui.add(camera, "fov", 1, 180).onChange(updateCamera)
-  const minMaxGUIHelper = new MinMaxGUIHelper(camera, "near", "far", 0.1)
-  gui
-    .add(minMaxGUIHelper, "min", 0.1, 1, 0.1)
-    .name("near")
-    .onChange(updateCamera)
-  gui
-    .add(minMaxGUIHelper, "max", 0.1, 1000, 0.1)
-    .name("far")
-    .onChange(updateCamera)
-
-  const controls = new OrbitControls(camera, renderer.domElement)
-  controls.target.set(0, 5, 0)
-  controls.update()
+  controls.rollSpeed = 0.005
+  controls.movementSpeed = 5
+  controls.dragToLook = true
 
   const scene = new THREE.Scene()
 
@@ -61,41 +45,48 @@ function main() {
     scene.add(light)
   }
 
-  const positions = []
-  const normals = []
+  for (let triangle of triangles) {
+    const positions = [
+      ...triangle.vertices[0].position,
+      ...triangle.vertices[1].position,
+      ...triangle.vertices[2].position,
+    ]
 
-  for (const vertex of vertices) {
-    positions.push(...vertex.position)
-    normals.push(...vertex.norm)
-  }
+    const normals = [
+      ...triangle.vertices[0].norm,
+      ...triangle.vertices[1].norm,
+      ...triangle.vertices[2].norm,
+    ]
 
-  const geometry = new THREE.BufferGeometry()
-  const positionNumComponents = 3
-  const normalNumComponents = 3
+    const geometry = new THREE.BufferGeometry()
+    const positionNumComponents = 3
+    const normalNumComponents = 3
 
-  geometry.setAttribute(
-    "position",
-    new THREE.BufferAttribute(
-      new Float32Array(positions),
-      positionNumComponents
+    geometry.setAttribute(
+      "position",
+      new THREE.BufferAttribute(
+        new Float32Array(positions),
+        positionNumComponents
+      )
     )
-  )
-  geometry.setAttribute(
-    "normal",
-    new THREE.BufferAttribute(new Float32Array(normals), normalNumComponents)
-  )
+    geometry.setAttribute(
+      "normal",
+      new THREE.BufferAttribute(new Float32Array(normals), normalNumComponents)
+    )
 
-  // the order of all sets of indices must follow the right-hand rule
-  // the normal attribute has nothing to do with face direction
-  // geometry.setIndex([2, 0, 1, 2, 1, 3])
+    // the order of all sets of indices must follow the right-hand rule
+    // the normal attribute has nothing to do with face direction
+    // you don't have to manually set the indices if positions of all vertices is provided
+    // geometry.setIndex([2, 0, 1, 2, 1, 3])
 
-  const material = new THREE.MeshPhongMaterial({
-    color: 0x8888ff,
-  })
+    const material = new THREE.MeshBasicMaterial({
+      color: 0x8888ff,
+    })
 
-  const kzmap = new THREE.Mesh(geometry, material)
+    const face = new THREE.Mesh(geometry, material)
 
-  scene.add(kzmap)
+    scene.add(face)
+  }
 
   function resizeRendererToDisplaySize(renderer: THREE.WebGLRenderer) {
     const canvas = renderer.domElement
@@ -117,6 +108,7 @@ function main() {
       camera.aspect = canvas.clientWidth / canvas.clientHeight
       camera.updateProjectionMatrix()
     }
+    controls.update(1)
 
     // const speed = 1
     // const rot = time * speed
